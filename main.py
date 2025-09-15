@@ -5,7 +5,6 @@ from aiogram import Bot, Dispatcher, types
 
 API_TOKEN = os.getenv("API_TOKEN")
 OUTPUT_CHANNEL_ID = int(os.getenv("OUTPUT_CHANNEL_ID"))
-
 LINKS_FILE = "links.json"
 
 if not API_TOKEN or not OUTPUT_CHANNEL_ID:
@@ -13,7 +12,7 @@ if not API_TOKEN or not OUTPUT_CHANNEL_ID:
     exit(1)
 
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()  # aiogram 3.x - без аргументов
 
 # -------------------- Каналы --------------------
 CHANNELS = [
@@ -58,6 +57,7 @@ def save_links(links):
 # -------------------- Хендлер команд --------------------
 @dp.message()
 async def handle_commands(message: types.Message):
+    bot = message.bot
     text = message.text or ""
 
     if text.startswith("/newlink"):
@@ -70,7 +70,6 @@ async def handle_commands(message: types.Message):
         created_links = []
         for ch in CHANNELS:
             try:
-                # создаём ссылку с заданным названием
                 invite = await bot.create_chat_invite_link(chat_id=ch["id"], name=link_name)
                 created_links.append({"name": ch["name"], "url": invite.invite_link})
             except Exception as e:
@@ -96,7 +95,6 @@ async def handle_commands(message: types.Message):
         for line in output_lines:
             await bot.send_message(OUTPUT_CHANNEL_ID, line)
 
-        # Ответ пользователю
         await message.answer("✅ Все ссылки созданы и опубликованы!")
 
     elif text.startswith("/alllinks"):
@@ -105,7 +103,6 @@ async def handle_commands(message: types.Message):
             await message.answer("ℹ️ Ссылок пока нет")
             return
 
-        # Формируем готовый блок
         output_lines = []
         first_link = saved_links[0]
         output_lines.append(f"{first_link['name']} - {first_link['url']}")
@@ -124,7 +121,7 @@ async def main():
         print("Бот запущен. Ожидание команд...")
         await dp.start_polling()
     finally:
-        await bot.close()  # закрытие сессии
+        await bot.session.close()  # закрытие сессии
 
 if __name__ == "__main__":
     asyncio.run(main())
