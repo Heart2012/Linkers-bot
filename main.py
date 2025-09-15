@@ -3,6 +3,7 @@ import json
 import asyncio
 from aiogram import Bot, Dispatcher, types
 
+# -------------------- Настройки --------------------
 API_TOKEN = os.getenv("API_TOKEN")
 OUTPUT_CHANNEL_ID = int(os.getenv("OUTPUT_CHANNEL_ID"))
 LINKS_FILE = "links.json"
@@ -14,7 +15,7 @@ if not API_TOKEN or not OUTPUT_CHANNEL_ID:
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()  # aiogram 3.x
 
-# -------------------- Каналы --------------------
+# -------------------- Список каналов --------------------
 CHANNELS = [
     {"name": "⚠️ ОПЕРАТИВНІ НОВИНИ 🔞", "id": -1003039408421},
     {"name": "Київ/обл.", "id": -1002851410256},
@@ -57,7 +58,6 @@ def save_links(links):
 # -------------------- Хендлер команд --------------------
 @dp.message()
 async def handle_commands(message: types.Message):
-    bot = message.bot
     text = message.text or ""
 
     if text.startswith("/newlink"):
@@ -117,11 +117,14 @@ async def handle_commands(message: types.Message):
 
 # -------------------- Запуск бота --------------------
 async def main():
+    # Удаляем webhook, чтобы не было конфликта
+    await bot.delete_webhook(drop_pending_updates=True)
+    print("Webhook удалён, запускаем polling...")
+
     try:
-        print("Бот запущен. Ожидание команд...")
-        await dp.start_polling(bot)  # передаем bot явно
+        await dp.start_polling()
     finally:
-        await bot.session.close()  # закрытие сессии
+        await bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
