@@ -5,13 +5,15 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler
 from aiohttp import web
 from datetime import datetime, date, timedelta
 
+# -------------------- Настройки --------------------
 API_TOKEN = os.getenv("API_TOKEN")
 OUTPUT_CHANNEL_ID = os.getenv("OUTPUT_CHANNEL_ID")
-CHANNEL_ID = -1002851410256
+CHANNEL_ID = -1002851410256  # <- замените на свой ID канала
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # https://your-app.onrender.com/webhook/<TOKEN>
 STATS_FILE = "stats.json"
 
-if not API_TOKEN or not OUTPUT_CHANNEL_ID:
-    print("❌ Ошибка: нет API_TOKEN или OUTPUT_CHANNEL_ID")
+if not API_TOKEN or not OUTPUT_CHANNEL_ID or not WEBHOOK_URL:
+    print("❌ Ошибка: нет API_TOKEN, OUTPUT_CHANNEL_ID или WEBHOOK_URL")
     exit(1)
 
 OUTPUT_CHANNEL_ID = int(OUTPUT_CHANNEL_ID)
@@ -19,7 +21,7 @@ OUTPUT_CHANNEL_ID = int(OUTPUT_CHANNEL_ID)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# -------------------- СТАТИСТИКА --------------------
+# -------------------- Статистика --------------------
 def load_stats():
     if os.path.exists(STATS_FILE):
         with open(STATS_FILE, "r", encoding="utf-8") as f:
@@ -41,37 +43,33 @@ def get_stats_by_day():
     stats = load_stats()
     today = date.today()
     yesterday = today - timedelta(days=1)
-
     today_count = 0
     yesterday_count = 0
-
     for item in stats:
         ts = datetime.fromisoformat(item["timestamp"]).date()
         if ts == today:
             today_count += 1
         elif ts == yesterday:
             yesterday_count += 1
-
     return today_count, yesterday_count
 
-# -------------------- КОМАНДЫ --------------------
-@dp.message()
+# -------------------- Команды --------------------
+@dp.message_handler()
 async def handle_commands(message: types.Message):
-    if message.text.startswith("/newlink"):
-        parts = message.text.split(maxsplit=1)
-        if len(parts) < 2:
-            await message.answer("❌ Укажи название ссылки.\nПример: /newlink Київ/обл.")
-            return
+    text = message.text or ""
+    user = message.from_user.username or str(message.from_user.id)
 
+    # --- Создание новой ссылки ---
+    if text.startswith("/newlink"):
+        parts = text.split(maxsplit=1)
+        if len(parts) < 2:
+            await message.answer("❌ Укажи название ссылки. Пример: /newlink Київ/обл.")
+            return
         link_name = parts[1]
 
         try:
-            invite_link = await bot.create_chat_invite_link(
-                chat_id=CHANNEL_ID,
-                name=link_name
-            )
-
-            save_stats(link_name, invite_link.invite_link, message.from_user.username)
+            invite_link = await bot.create_chat_invite_link(chat_id=CHANNEL_ID, name=link_name)
+            save_stats(link_name, invite_link.invite_link, user)
 
             await bot.send_message(
                 OUTPUT_CHANNEL_ID,
@@ -82,18 +80,24 @@ async def handle_commands(message: types.Message):
         except Exception as e:
             await message.answer(f"❌ Ошибка: {e}")
 
-    elif message.text.startswith("/alllinks"):
+    # --- Вывод всех ссылок по 3 в строке ---
+    elif text.startswith("/alllinks"):
         stats = load_stats()
         if not stats:
             await message.answer("ℹ️ Ссылок пока нет")
             return
 
-        links_text = " | ".join(
-            [f"{item['link_name']} - {item['link_url']}" for item in stats]
-        )
-        await message.answer(links_text)
+        lines = []
+        for i in range(0, len(stats), 3):
+            group = stats[i:i+3]
+            line = " | ".join([f"{item['link_name']} - {item['link_url']}" for item in group])
+            lines.append(line)
+        formatted_text = "\n".join(lines)
 
-    elif message.text.startswith("/stats"):
+        await message.answer(formatted_text)
+
+    # --- Статистика заявок ---
+    elif text.startswith("/stats"):
         today_count, yesterday_count = get_stats_by_day()
         await message.answer(
             f"📊 Статистика заявок:\n"
@@ -101,17 +105,18 @@ async def handle_commands(message: types.Message):
             f"Вчера: {yesterday_count}"
         )
 
-# -------------------- WEBHOOK --------------------
+# -------------------- Webhook --------------------
 async def on_startup(app):
-    webhook_path = f"/webhook/{API_TOKEN}"
-    webhook_url = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}{webhook_path}"
-    await bot.set_webhook(webhook_url)
-    print(f"✅ Webhook установлен: {webhook_url}")
+    await bot.delete_webhook(drop_pending_updates=True)
+    print("Webhook удалён и очищены pending updates")
+    await bot.set_webhook(WEBHOOK_URL)
+    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
 
 async def on_shutdown(app):
     await bot.delete_webhook()
     print("❌ Webhook удалён")
 
+# -------------------- Запуск aiohttp --------------------
 def main():
     app = web.Application()
     SimpleRequestHandler(dp, bot).register(app, path=f"/webhook/{API_TOKEN}")
