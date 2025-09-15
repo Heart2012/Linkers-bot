@@ -60,6 +60,7 @@ def save_links(links):
 async def handle_commands(message: types.Message):
     text = message.text or ""
 
+    # ---------------- Создание новой ссылки ----------------
     if text.startswith("/newlink"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
@@ -77,7 +78,7 @@ async def handle_commands(message: types.Message):
 
         save_links(created_links)
 
-        # -------------------- Формируем вывод --------------------
+        # ---------------- Формируем вывод ----------------
         output_lines = []
 
         # Первая ссылка отдельно
@@ -97,6 +98,7 @@ async def handle_commands(message: types.Message):
 
         await message.answer("✅ Все ссылки созданы и опубликованы!")
 
+    # ---------------- Показать все ссылки ----------------
     elif text.startswith("/alllinks"):
         saved_links = load_links()
         if not saved_links:
@@ -117,12 +119,12 @@ async def handle_commands(message: types.Message):
 
 # -------------------- Запуск бота --------------------
 async def main():
-    # Удаляем webhook, чтобы не было конфликта
+    # Удаляем webhook перед polling
     await bot.delete_webhook(drop_pending_updates=True)
     print("Webhook удалён, запускаем polling...")
 
     try:
-        await dp.start_polling()
+        await dp.start_polling(bot)
     finally:
         await bot.session.close()
 
