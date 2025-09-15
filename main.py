@@ -78,7 +78,7 @@ async def handle_commands(message: types.Message):
 
         save_links(created_links)
 
-        # ---------------- Формируем вывод ----------------
+        # ---------------- Формируем текст одним сообщением ----------------
         output_lines = []
 
         # Первая ссылка отдельно
@@ -92,9 +92,11 @@ async def handle_commands(message: types.Message):
             line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
             output_lines.append(line)
 
-        # Отправляем в OUTPUT_CHANNEL_ID
-        for line in output_lines:
-            await bot.send_message(OUTPUT_CHANNEL_ID, line)
+        # Всё одной строкой через переносы
+        final_message = "\n".join(output_lines)
+
+        # Отправляем в OUTPUT_CHANNEL_ID одним сообщением
+        await bot.send_message(OUTPUT_CHANNEL_ID, final_message)
 
         await message.answer("✅ Все ссылки созданы и опубликованы!")
 
