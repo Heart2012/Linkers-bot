@@ -2,7 +2,7 @@ import os
 import asyncio
 from datetime import datetime, date, timedelta
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import ParseMode
+from aiogram.enums import ParseMode
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -26,7 +26,7 @@ CHANNELS = {
     -1002341809057: "Одеса/обл.",
     -1002628002244: "Чернігів/обл.",
     -1002966898895: "Луцьк/обл."
-    # Добавь остальные каналы по такому же принципу
+    # Добавьте остальные каналы
 }
 
 # -------------------- Инициализация бота --------------------
@@ -59,7 +59,7 @@ def generate_daily_report():
     return report
 
 # -------------------- Команда /newlink --------------------
-@dp.message_handler(commands=["newlink"])
+@dp.message(commands=["newlink"])
 async def cmd_newlink(message: types.Message):
     parts = message.text.split(maxsplit=1)
     if len(parts) < 2:
@@ -86,7 +86,7 @@ async def cmd_newlink(message: types.Message):
     await message.reply("✅ Ссылки созданы и отправлены!")
 
 # -------------------- Команда /report --------------------
-@dp.message_handler(commands=["report"])
+@dp.message(commands=["report"])
 async def cmd_report(message: types.Message):
     report = generate_daily_report()
     text = "📊 Статистика по ссылкам:\n\nСегодня:\n"
@@ -99,8 +99,8 @@ async def cmd_report(message: types.Message):
 
 # -------------------- Запуск --------------------
 async def main():
+    print("Бот запущен...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
