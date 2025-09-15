@@ -6,7 +6,7 @@ API_TOKEN = os.getenv("API_TOKEN")
 OUTPUT_CHANNEL_ID = int(os.getenv("OUTPUT_CHANNEL_ID"))
 
 # ID одного канала
-CHANNEL_ID = -1001234567890  # <-- сюда вставь ID своего канала
+CHANNEL_ID = -1002851410256  # <-- сюда вставь ID своего канала
 CHANNEL_NAME = "Київ/обл."   # название канала для отображения
 
 bot = Bot(token=API_TOKEN)
