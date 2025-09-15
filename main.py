@@ -57,7 +57,7 @@ def save_links(links):
     with open(LINKS_FILE, "w", encoding="utf-8") as f:
         json.dump(links, f, ensure_ascii=False, indent=2)
 
-# -------------------- Хендлер команд --------------------
+# -------------------- Обработчик команд --------------------
 async def handle_commands(message: types.Message):
     text = message.text or ""
     user = message.from_user.username or str(message.from_user.id)
@@ -81,7 +81,7 @@ async def handle_commands(message: types.Message):
         # Сохраняем все ссылки
         save_links(created_links)
 
-        # Отправляем в OUTPUT_CHANNEL_ID
+        # Отправляем в OUTPUT_CHANNEL_ID по 3 ссылки в строке
         for i in range(0, len(created_links), 3):
             group = created_links[i:i+3]
             line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
@@ -119,7 +119,8 @@ async def on_startup(app):
 
 async def on_shutdown(app):
     await bot.delete_webhook()
-    print("❌ Webhook удалён")
+    await bot.close()  # <-- Закрываем сессию!
+    print("❌ Webhook удалён и сессия закрыта")
 
 # -------------------- Запуск веб-сервера --------------------
 def main():
