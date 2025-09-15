@@ -1,0 +1,4 @@
+# Скопируйте этот файл в .env и вставьте свои данные
+
+API_TOKEN=ваш_токен_бота
+OUTPUT_CHANNEL_ID=-100XXXXXXXXX
