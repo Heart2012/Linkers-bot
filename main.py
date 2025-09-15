@@ -12,7 +12,7 @@ if not API_TOKEN or not OUTPUT_CHANNEL_ID:
     exit(1)
 
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher()  # aiogram 3.x - без аргументов
+dp = Dispatcher()  # aiogram 3.x
 
 # -------------------- Каналы --------------------
 CHANNELS = [
@@ -77,14 +77,14 @@ async def handle_commands(message: types.Message):
 
         save_links(created_links)
 
-        # Формируем готовый блок для публикации
+        # -------------------- Формируем вывод --------------------
         output_lines = []
 
         # Первая ссылка отдельно
         first_link = created_links[0]
         output_lines.append(f"{first_link['name']} - {first_link['url']}")
 
-        # Остальные по 3 ссылки в строке
+        # Остальные по 3 в строке
         rest_links = created_links[1:]
         for i in range(0, len(rest_links), 3):
             group = rest_links[i:i+3]
@@ -119,7 +119,7 @@ async def handle_commands(message: types.Message):
 async def main():
     try:
         print("Бот запущен. Ожидание команд...")
-        await dp.start_polling(bot)  # <-- передаем bot явно
+        await dp.start_polling(bot)  # передаем bot явно
     finally:
         await bot.session.close()  # закрытие сессии
 
