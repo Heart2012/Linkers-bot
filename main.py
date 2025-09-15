@@ -37,6 +37,11 @@ def save_stats(link_name, link_url, user):
     with open(STATS_FILE, "w", encoding="utf-8") as f:
         json.dump(stats, f, ensure_ascii=False, indent=2)
 
+# -------------------- Удаление webhook перед стартом --------------------
+async def remove_webhook():
+    await bot.delete_webhook()
+    print("Webhook удалён, можно запускать long polling")
+
 # -------------------- Обработчик команды /newlink --------------------
 @dp.message()
 async def handle_newlink(message: types.Message):
@@ -70,6 +75,7 @@ async def handle_newlink(message: types.Message):
 # -------------------- Запуск бота --------------------
 async def main():
     async with bot:
+        await remove_webhook()  # удаляем webhook перед стартом
         await dp.start_polling(bot)
 
 if __name__ == "__main__":
