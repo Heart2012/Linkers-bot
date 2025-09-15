@@ -1,30 +1,33 @@
 import os
-from aiogram import Bot, Dispatcher, executor, types
+import asyncio
+from aiogram import Bot, Dispatcher, types
 
-# Токен бота и ID служебного канала
 API_TOKEN = os.getenv("API_TOKEN")
 OUTPUT_CHANNEL_ID = int(os.getenv("OUTPUT_CHANNEL_ID"))
 
-# ID одного канала
-CHANNEL_ID = -1002851410256  # <-- сюда вставь ID своего канала
-CHANNEL_NAME = "Київ/обл."   # название канала для отображения
+CHANNEL_ID = -1002851410256
+CHANNEL_NAME = "Київ/обл."
 
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
-@dp.message_handler(commands=["newlink"])
-async def new_link(message: types.Message):
-    try:
-        # Создаём ссылку
-        invite_link = await bot.create_chat_invite_link(
-            chat_id=CHANNEL_ID,
-            name=f"Ссылка для {CHANNEL_NAME}"
-        )
-        # Отправляем ссылку в служебный канал
-        await bot.send_message(OUTPUT_CHANNEL_ID, f"{CHANNEL_NAME} - {invite_link.invite_link}")
-        await message.answer("✅ Ссылка создана и отправлена!")
-    except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+async def main():
+    async with bot:
+        dp.startup.register(lambda _: print("Бот запущен"))
+
+        @dp.message()
+        async def new_link(message: types.Message):
+            try:
+                invite_link = await bot.create_chat_invite_link(
+                    chat_id=CHANNEL_ID,
+                    name=f"Ссылка для {CHANNEL_NAME}"
+                )
+                await bot.send_message(OUTPUT_CHANNEL_ID, f"{CHANNEL_NAME} - {invite_link.invite_link}")
+                await message.answer("✅ Ссылка создана и отправлена!")
+            except Exception as e:
+                await message.answer(f"❌ Ошибка: {e}")
+
+        await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())
