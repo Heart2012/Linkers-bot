@@ -1,23 +1,21 @@
 import os
 import json
+import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler
-from aiohttp import web
 
-# -------------------- Настройки --------------------
 API_TOKEN = os.getenv("API_TOKEN")
-OUTPUT_CHANNEL_ID = int(os.getenv("OUTPUT_CHANNEL_ID"))  # канал для публикации всех ссылок
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # https://your-app.onrender.com/webhook/<TOKEN>
+OUTPUT_CHANNEL_ID = int(os.getenv("OUTPUT_CHANNEL_ID"))
+
 LINKS_FILE = "links.json"
 
-if not API_TOKEN or not OUTPUT_CHANNEL_ID or not WEBHOOK_URL:
-    print("❌ Ошибка: не заданы API_TOKEN, OUTPUT_CHANNEL_ID или WEBHOOK_URL")
+if not API_TOKEN or not OUTPUT_CHANNEL_ID:
+    print("❌ Ошибка: не заданы API_TOKEN или OUTPUT_CHANNEL_ID")
     exit(1)
 
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
-# -------------------- Список всех каналов --------------------
+# -------------------- Каналы --------------------
 CHANNELS = [
     {"name": "⚠️ ОПЕРАТИВНІ НОВИНИ 🔞", "id": -1003039408421},
     {"name": "Київ/обл.", "id": -1002851410256},
@@ -46,7 +44,7 @@ CHANNELS = [
     {"name": "Кременчук", "id": -1003060893497},
 ]
 
-# -------------------- Работа с файлами --------------------
+# -------------------- Работа с JSON --------------------
 def load_links():
     if os.path.exists(LINKS_FILE):
         with open(LINKS_FILE, "r", encoding="utf-8") as f:
@@ -57,12 +55,11 @@ def save_links(links):
     with open(LINKS_FILE, "w", encoding="utf-8") as f:
         json.dump(links, f, ensure_ascii=False, indent=2)
 
-# -------------------- Обработчик команд --------------------
+# -------------------- Хендлер команд --------------------
+@dp.message()
 async def handle_commands(message: types.Message):
     text = message.text or ""
-    user = message.from_user.username or str(message.from_user.id)
 
-    # --- Создание новой ссылки во всех каналах ---
     if text.startswith("/newlink"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
@@ -73,63 +70,61 @@ async def handle_commands(message: types.Message):
         created_links = []
         for ch in CHANNELS:
             try:
-                invite = await bot.create_chat_invite_link(chat_id=ch["id"], name=f"{link_name} ({user})")
+                # создаём ссылку с заданным названием
+                invite = await bot.create_chat_invite_link(chat_id=ch["id"], name=link_name)
                 created_links.append({"name": ch["name"], "url": invite.invite_link})
             except Exception as e:
                 await message.answer(f"❌ Не удалось создать ссылку для {ch['name']}: {e}")
 
-        # Сохраняем все ссылки
         save_links(created_links)
 
-        # Отправляем в OUTPUT_CHANNEL_ID по 3 ссылки в строке
-        for i in range(0, len(created_links), 3):
-            group = created_links[i:i+3]
+        # Формируем готовый блок для публикации
+        output_lines = []
+
+        # Первая ссылка отдельно
+        first_link = created_links[0]
+        output_lines.append(f"{first_link['name']} - {first_link['url']}")
+
+        # Остальные по 3 ссылки в строке
+        rest_links = created_links[1:]
+        for i in range(0, len(rest_links), 3):
+            group = rest_links[i:i+3]
             line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
+            output_lines.append(line)
+
+        # Отправляем в OUTPUT_CHANNEL_ID
+        for line in output_lines:
             await bot.send_message(OUTPUT_CHANNEL_ID, line)
 
+        # Ответ пользователю
         await message.answer("✅ Все ссылки созданы и опубликованы!")
 
-    # --- Вывод всех ссылок ---
     elif text.startswith("/alllinks"):
         saved_links = load_links()
         if not saved_links:
             await message.answer("ℹ️ Ссылок пока нет")
             return
 
-        lines = []
-        first_link = saved_links[0]  # ОПЕРАТИВНІ НОВИНИ
-        lines.append(f"{first_link['name']} - {first_link['url']}")
+        # Формируем готовый блок
+        output_lines = []
+        first_link = saved_links[0]
+        output_lines.append(f"{first_link['name']} - {first_link['url']}")
 
         rest_links = saved_links[1:]
         for i in range(0, len(rest_links), 3):
             group = rest_links[i:i+3]
             line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
-            lines.append(line)
+            output_lines.append(line)
 
-        await message.answer("\n".join(lines))
+        await message.answer("\n".join(output_lines))
 
-# Регистрируем хендлер
-dp.message.register(handle_commands)
-
-# -------------------- Webhook --------------------
-async def on_startup(app):
-    await bot.delete_webhook(drop_pending_updates=True)
-    await bot.set_webhook(WEBHOOK_URL)
-    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
-
-async def on_shutdown(app):
-    await bot.delete_webhook()
-    await bot.close()  # <-- Закрываем сессию!
-    print("❌ Webhook удалён и сессия закрыта")
-
-# -------------------- Запуск веб-сервера --------------------
-def main():
-    app = web.Application()
-    SimpleRequestHandler(dp, bot).register(app, path=f"/webhook/{API_TOKEN}")
-    app.on_startup.append(on_startup)
-    app.on_shutdown.append(on_shutdown)
-    port = int(os.getenv("PORT", 8080))
-    web.run_app(app, host="0.0.0.0", port=port)
+# -------------------- Запуск бота --------------------
+async def main():
+    try:
+        print("Бот запущен. Ожидание команд...")
+        await dp.start_polling()
+    finally:
+        await bot.close()  # закрытие сессии
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
