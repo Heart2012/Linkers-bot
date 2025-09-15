@@ -119,7 +119,7 @@ async def handle_commands(message: types.Message):
 async def main():
     try:
         print("Бот запущен. Ожидание команд...")
-        await dp.start_polling()
+        await dp.start_polling(bot)  # <-- передаем bot явно
     finally:
         await bot.session.close()  # закрытие сессии
 
