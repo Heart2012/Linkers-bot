@@ -3,12 +3,11 @@ import json
 from aiogram import Bot, Dispatcher, types
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler
 from aiohttp import web
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
-# -------------------- НАСТРОЙКИ --------------------
 API_TOKEN = os.getenv("API_TOKEN")
-OUTPUT_CHANNEL_ID = os.getenv("OUTPUT_CHANNEL_ID")  # служебный канал для ссылок
-CHANNEL_ID = -1002851410256  # ID канала, где создаются ссылки
+OUTPUT_CHANNEL_ID = os.getenv("OUTPUT_CHANNEL_ID")
+CHANNEL_ID = -1002851410256
 STATS_FILE = "stats.json"
 
 if not API_TOKEN or not OUTPUT_CHANNEL_ID:
@@ -37,6 +36,23 @@ def save_stats(link_name, link_url, user):
     })
     with open(STATS_FILE, "w", encoding="utf-8") as f:
         json.dump(stats, f, ensure_ascii=False, indent=2)
+
+def get_stats_by_day():
+    stats = load_stats()
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    today_count = 0
+    yesterday_count = 0
+
+    for item in stats:
+        ts = datetime.fromisoformat(item["timestamp"]).date()
+        if ts == today:
+            today_count += 1
+        elif ts == yesterday:
+            yesterday_count += 1
+
+    return today_count, yesterday_count
 
 # -------------------- КОМАНДЫ --------------------
 @dp.message()
@@ -76,6 +92,14 @@ async def handle_commands(message: types.Message):
             [f"{item['link_name']} - {item['link_url']}" for item in stats]
         )
         await message.answer(links_text)
+
+    elif message.text.startswith("/stats"):
+        today_count, yesterday_count = get_stats_by_day()
+        await message.answer(
+            f"📊 Статистика заявок:\n"
+            f"Сегодня: {today_count}\n"
+            f"Вчера: {yesterday_count}"
+        )
 
 # -------------------- WEBHOOK --------------------
 async def on_startup(app):
