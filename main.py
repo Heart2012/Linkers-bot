@@ -7,12 +7,11 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # -------------------- Настройки --------------------
-API_TOKEN = os.getenv("API_TOKEN")  # токен бота
-OUTPUT_CHANNEL_ID = int(os.getenv("OUTPUT_CHANNEL_ID"))  # куда присылать ссылки
-SERVICE_ACCOUNT_FILE = "service_account.json"  # JSON ключ Google
-SHEET_NAME = "TelegramBotStats"  # имя Google таблицы
+API_TOKEN = os.getenv("API_TOKEN")
+OUTPUT_CHANNEL_ID = int(os.getenv("OUTPUT_CHANNEL_ID"))
+SERVICE_ACCOUNT_FILE = "service_account.json"
+SHEET_NAME = os.getenv("SHEET_NAME", "TelegramBotStats")
 
-# Список каналов (ID: название для сообщения)
 CHANNELS = {
     -1003039408421: "Київ/обл.",
     -1002851410256: "Харків/обл.",
@@ -26,10 +25,9 @@ CHANNELS = {
     -1002341809057: "Одеса/обл.",
     -1002628002244: "Чернігів/обл.",
     -1002966898895: "Луцьк/обл."
-    # Добавьте остальные каналы
 }
 
-# -------------------- Инициализация бота --------------------
+# -------------------- Инициализация --------------------
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
@@ -37,7 +35,7 @@ dp = Dispatcher()
 scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name(SERVICE_ACCOUNT_FILE, scope)
 gc = gspread.authorize(creds)
-sheet = gc.open(SHEET_NAME).sheet1  # используем первый лист
+sheet = gc.open(SHEET_NAME).sheet1
 
 def log_to_sheet(link_name, channel_name):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -48,17 +46,16 @@ def generate_daily_report():
     today = date.today()
     yesterday = today - timedelta(days=1)
     report = {"today": {}, "yesterday": {}}
-
     for r in records:
         ts = datetime.strptime(r["timestamp"], "%Y-%m-%d %H:%M:%S").date()
-        channel = r["channel_name"]
+        ch = r["channel_name"]
         if ts == today:
-            report["today"][channel] = report["today"].get(channel, 0) + 1
+            report["today"][ch] = report["today"].get(ch, 0) + 1
         elif ts == yesterday:
-            report["yesterday"][channel] = report["yesterday"].get(channel, 0) + 1
+            report["yesterday"][ch] = report["yesterday"].get(ch, 0) + 1
     return report
 
-# -------------------- Команда /newlink --------------------
+# -------------------- /newlink --------------------
 @dp.message(commands=["newlink"])
 async def cmd_newlink(message: types.Message):
     parts = message.text.split(maxsplit=1)
@@ -74,9 +71,9 @@ async def cmd_newlink(message: types.Message):
             links_text_list.append(f"{name} - {invite_link.invite_link}")
             log_to_sheet(link_name, name)
         except Exception as e:
-            links_text_list.append(f"{name} - ❌ ошибка: {e}")
+            links_text_list.append(f"{name} - ❌ ошибка")
 
-    # Формируем сообщение по 3 ссылки в ряд
+    # Форматирование по 3 ссылки в ряд
     message_lines = []
     for i in range(0, len(links_text_list), 3):
         message_lines.append(" | ".join(links_text_list[i:i+3]))
@@ -85,7 +82,7 @@ async def cmd_newlink(message: types.Message):
     await bot.send_message(OUTPUT_CHANNEL_ID, final_message, parse_mode=ParseMode.HTML)
     await message.reply("✅ Ссылки созданы и отправлены!")
 
-# -------------------- Команда /report --------------------
+# -------------------- /report --------------------
 @dp.message(commands=["report"])
 async def cmd_report(message: types.Message):
     report = generate_daily_report()
