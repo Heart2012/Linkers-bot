@@ -24,6 +24,23 @@ CHANNELS = [
     {"name": "Дніпро/обл.", "id": -1003021264692},
     {"name": "Запоріжжя/обл.", "id": -1002996278961},
     {"name": "Івано-Франківськ/обл.", "id": -1003006964132},
+    {"name": "Рівне/обл.", "id": -1002945091264},
+    {"name": "Хмельницький/обл.", "id": -1002341809057},
+    {"name": "Одеса/обл.", "id": -1002628002244},
+    {"name": "Чернігів/обл.", "id": -1002966898895},
+    {"name": "Луцьк/обл.", "id": -1002946058758},
+    {"name": "Тернопіль/обл.", "id": -1003073607738},
+    {"name": "Чернівці/обл.", "id": -1002990168271},
+    {"name": "Ужгород/обл.", "id": -1002895198278},
+    {"name": "Житомир/обл.", "id": -1002915977182},
+    {"name": "Черкаси/обл.", "id": -1002320247065},
+    {"name": "Миколаїв/обл.", "id": -1003042812683},
+    {"name": "Полтава/обл.", "id": -1002792112863},
+    {"name": "Суми/обл.", "id": -1002933054536},
+    {"name": "Кропивницький/обл.", "id": -1002968550135},
+    {"name": "Херсон/обл.", "id": -1003098702380},
+    {"name": "Кривий Ріг", "id": -1002816696144},
+    {"name": "Кременчук", "id": -1003060893497},
 ]
 
 # ================== Работа с JSON ==================
@@ -49,7 +66,6 @@ dp = Dispatcher()
 async def handle_commands(message: types.Message):
     text = message.text or ""
 
-    # ---------------- Создание новой ссылки ----------------
     if text.startswith("/newlink"):
         parts = text.split(maxsplit=1)
         link_name = parts[1] if len(parts) > 1 else f"Заявка від {message.from_user.full_name}"
@@ -60,7 +76,7 @@ async def handle_commands(message: types.Message):
                 invite = await bot.create_chat_invite_link(
                     chat_id=ch["id"],
                     name=link_name,
-                    creates_join_request=True  # ❗️ закрита лінка з заявкою
+                    creates_join_request=True  # закрита лінка з підтвердженням заявки
                 )
                 created_links.append({"name": ch["name"], "url": invite.invite_link})
             except Exception as e:
@@ -72,11 +88,11 @@ async def handle_commands(message: types.Message):
         output_lines = []
 
         if created_links:
-            # Первая отдельная
+            # Первая на отдельной строке
             first_link = created_links[0]
             output_lines.append(f"{first_link['name']} - {first_link['url']}")
 
-            # Все остальные по три в строке через |
+            # Остальные по три в строке через |
             rest_links = created_links[1:]
             for i in range(0, len(rest_links), 3):
                 group = rest_links[i:i+3]
@@ -87,7 +103,6 @@ async def handle_commands(message: types.Message):
         await bot.send_message(OUTPUT_CHANNEL_ID, final_message)
         await message.answer("✅ Все ссылки созданы и опубликованы!")
 
-    # ---------------- Показать все ссылки ----------------
     elif text.startswith("/alllinks"):
         saved_links = load_links()
         if not saved_links:
@@ -95,25 +110,20 @@ async def handle_commands(message: types.Message):
             return
 
         output_lines = []
+        first_link = saved_links[0]
+        output_lines.append(f"{first_link['name']} - {first_link['url']}")
 
-        if saved_links:
-            # Первая отдельная
-            first_link = saved_links[0]
-            output_lines.append(f"{first_link['name']} - {first_link['url']}")
-
-            # Все остальные по три в строке через |
-            rest_links = saved_links[1:]
-            for i in range(0, len(rest_links), 3):
-                group = rest_links[i:i+3]
-                line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
-                output_lines.append(line)
+        rest_links = saved_links[1:]
+        for i in range(0, len(rest_links), 3):
+            group = rest_links[i:i+3]
+            line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
+            output_lines.append(line)
 
         await message.answer("\n".join(output_lines))
 
 # ================== Запуск бота ==================
 async def main():
-    # Удаляем webhook перед polling
-    await bot.delete_webhook(drop_pending_updates=True)
+    await bot.delete_webhook(drop_pending_updates=True)  # удаляем вебхук перед polling
     print("Webhook удалён, запускаем polling...")
 
     try:
