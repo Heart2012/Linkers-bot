@@ -64,39 +64,16 @@ async def handle_commands(message: types.Message):
     if text.startswith("/newlink"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
-            await message.answer("❌ Укажи название ссылки. Пример: /newlink Київ/обл.")
-            return
-        link_name = parts[1]
-
-        created_links = []
-        for ch in CHANNELS:
-            try:
-                invite = await bot.create_chat_invite_link(chat_id=ch["id"], name=link_name)
-                created_links.append({"name": ch["name"], "url": invite.invite_link})
-            except Exception as e:
-                await message.answer(f"❌ Не удалось создать ссылку для {ch['name']}: {e}")
+@@ -77,7 +78,7 @@
 
         save_links(created_links)
 
-        # ---------------- Формируем текст одним сообщением ----------------
+        # -------------------- Формируем вывод --------------------
+        # ---------------- Формируем вывод ----------------
         output_lines = []
 
         # Первая ссылка отдельно
-        first_link = created_links[0]
-        output_lines.append(f"{first_link['name']} - {first_link['url']}")
-
-        # Остальные по 3 в строке
-        rest_links = created_links[1:]
-        for i in range(0, len(rest_links), 3):
-            group = rest_links[i:i+3]
-            line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
-            output_lines.append(line)
-
-        # Всё одной строкой через переносы
-        final_message = "\n".join(output_lines)
-
-        # Отправляем в OUTPUT_CHANNEL_ID одним сообщением
-        await bot.send_message(OUTPUT_CHANNEL_ID, final_message)
+@@ -97,6 +98,7 @@
 
         await message.answer("✅ Все ссылки созданы и опубликованы!")
 
@@ -104,31 +81,17 @@ async def handle_commands(message: types.Message):
     elif text.startswith("/alllinks"):
         saved_links = load_links()
         if not saved_links:
-            await message.answer("ℹ️ Ссылок пока нет")
-            return
-
-        output_lines = []
-        first_link = saved_links[0]
-        output_lines.append(f"{first_link['name']} - {first_link['url']}")
-
-        rest_links = saved_links[1:]
-        for i in range(0, len(rest_links), 3):
-            group = rest_links[i:i+3]
-            line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
-            output_lines.append(line)
-
-        await message.answer("\n".join(output_lines))
+@@ -117,12 +119,12 @@
 
 # -------------------- Запуск бота --------------------
 async def main():
+    # Удаляем webhook, чтобы не было конфликта
     # Удаляем webhook перед polling
     await bot.delete_webhook(drop_pending_updates=True)
     print("Webhook удалён, запускаем polling...")
 
     try:
+        await dp.start_polling()
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
-
-if __name__ == "__main__":
-    asyncio.run(main())
