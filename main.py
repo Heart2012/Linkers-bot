@@ -2,8 +2,6 @@ import os
 import json
 import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from aiogram.fsm.storage.memory import MemoryStorage
 
 # -------------------- Настройки --------------------
 API_TOKEN = os.getenv("API_TOKEN")
@@ -14,8 +12,8 @@ if not API_TOKEN or not OUTPUT_CHANNEL_ID:
     print("❌ Ошибка: не заданы API_TOKEN или OUTPUT_CHANNEL_ID")
     exit(1)
 
-bot = Bot(token=API_TOKEN, parse_mode="HTML")
-dp = Dispatcher(storage=MemoryStorage())
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher()  # aiogram 3.x
 
 # -------------------- Список каналов --------------------
 CHANNELS = [
@@ -57,59 +55,76 @@ def save_links(links):
     with open(LINKS_FILE, "w", encoding="utf-8") as f:
         json.dump(links, f, ensure_ascii=False, indent=2)
 
-# -------------------- Команды --------------------
-@dp.message(Command("newlink"))
-async def cmd_newlink(message: types.Message):
-    parts = message.text.split(maxsplit=1)
-    if len(parts) < 2:
-        await message.answer("❌ Укажи название ссылки. Пример: /newlink Київ/обл.")
-        return
-    link_name = parts[1]
+# -------------------- Хендлер команд --------------------
+@dp.message()
+async def handle_commands(message: types.Message):
+    text = message.text or ""
 
-    saved_links = load_links()
-    created_links = []
+    # ---------------- Создание новой ссылки ----------------
+    if text.startswith("/newlink"):
+        parts = text.split(maxsplit=1)
+        if len(parts) < 2:
+            await message.answer("❌ Укажи название ссылки. Пример: /newlink Київ/обл.")
+            return
+        link_name = parts[1]
 
-    for ch in CHANNELS:
-        try:
-            invite = await bot.create_chat_invite_link(chat_id=ch["id"], name=link_name)
-            created_links.append({"name": ch["name"], "url": invite.invite_link})
-        except Exception as e:
-            await message.answer(f"❌ Не удалось создать ссылку для {ch['name']}: {e}")
+        created_links = []
+        for ch in CHANNELS:
+            try:
+                invite = await bot.create_chat_invite_link(chat_id=ch["id"], name=link_name)
+                created_links.append({"name": ch["name"], "url": invite.invite_link})
+            except Exception as e:
+                await message.answer(f"❌ Не удалось создать ссылку для {ch['name']}: {e}")
 
-    # добавляем к старым ссылкам
-    all_links = saved_links + created_links
-    save_links(all_links)
+        save_links(created_links)
 
-    # форматируем вывод
-    output_lines = [f"{created_links[0]['name']} - {created_links[0]['url']}"]
-    for i in range(1, len(created_links), 3):
-        group = created_links[i:i+3]
-        line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
-        output_lines.append(line)
+        # ---------------- Формируем текст одним сообщением ----------------
+        output_lines = []
 
-    final_message = "\n".join(output_lines)
-    await bot.send_message(OUTPUT_CHANNEL_ID, final_message)
-    await message.answer("✅ Все ссылки созданы и опубликованы!")
+        # Первая ссылка отдельно
+        first_link = created_links[0]
+        output_lines.append(f"{first_link['name']} - {first_link['url']}")
 
-@dp.message(Command("alllinks"))
-async def cmd_alllinks(message: types.Message):
-    saved_links = load_links()
-    if not saved_links:
-        await message.answer("ℹ️ Ссылок пока нет")
-        return
+        # Остальные по 3 в строке
+        rest_links = created_links[1:]
+        for i in range(0, len(rest_links), 3):
+            group = rest_links[i:i+3]
+            line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
+            output_lines.append(line)
 
-    output_lines = [f"{saved_links[0]['name']} - {saved_links[0]['url']}"]
-    for i in range(1, len(saved_links), 3):
-        group = saved_links[i:i+3]
-        line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
-        output_lines.append(line)
+        # Всё одной строкой через переносы
+        final_message = "\n".join(output_lines)
 
-    await message.answer("\n".join(output_lines))
+        # Отправляем в OUTPUT_CHANNEL_ID одним сообщением
+        await bot.send_message(OUTPUT_CHANNEL_ID, final_message)
 
-# -------------------- Запуск --------------------
+        await message.answer("✅ Все ссылки созданы и опубликованы!")
+
+    # ---------------- Показать все ссылки ----------------
+    elif text.startswith("/alllinks"):
+        saved_links = load_links()
+        if not saved_links:
+            await message.answer("ℹ️ Ссылок пока нет")
+            return
+
+        output_lines = []
+        first_link = saved_links[0]
+        output_lines.append(f"{first_link['name']} - {first_link['url']}")
+
+        rest_links = saved_links[1:]
+        for i in range(0, len(rest_links), 3):
+            group = rest_links[i:i+3]
+            line = " | ".join([f"{item['name']} - {item['url']}" for item in group])
+            output_lines.append(line)
+
+        await message.answer("\n".join(output_lines))
+
+# -------------------- Запуск бота --------------------
 async def main():
+    # Удаляем webhook перед polling
     await bot.delete_webhook(drop_pending_updates=True)
-    print("🚀 Бот запущен (polling)...")
+    print("Webhook удалён, запускаем polling...")
+
     try:
         await dp.start_polling(bot)
     finally:
